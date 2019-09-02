@@ -1,0 +1,67 @@
+---
+title: "Clase 4"
+output: html_notebook
+---
+
+Valor promedio de enlace
+
+```{r}
+library(tidyverse)
+library(estcomp)
+
+```
+
+```{r}
+df_e <- as_tibble(enlacep_2013)
+```
+
+```{r}
+glimpse(df_e)
+```
+```{r}
+
+df_3 <- df_e %>% select(ends_with("3"), -contains("POR") )
+df_3
+```
+
+
+
+```{r}
+
+results <- vector("double", 3)
+
+for (i in 1:5){
+  results[[i]] <- max(df_3[[i]], na.rm = TRUE)
+}
+
+```
+
+
+
+```{r}
+library(usethis)
+dir.create("data") # crea carpeta en caso de que no exista ya
+usethis::use_zip("https://github.com/tereom/estcomp/raw/master/data-raw/19RAMA.zip", 
+    "data") # descargar y descomprimir zip
+```
+
+
+```{r}
+path = "data/19RAMA/"
+extension = ".xls"
+element = "CO"
+name = str_c("2009" , element , extension)
+
+paths <- dir("data/19RAMA", pattern = "\\.xls$", full.names = TRUE)
+
+list_elements <- c("CO","NO","NO2", "NOX", "O3", "M10", "M25")
+
+for (i in 1:length(list_elements)){
+  name = str_c(path, "2009" , list_elements[i] , extension)
+  print(name)
+  nueva <- read_xls(name)
+  
+}
+
+```
+

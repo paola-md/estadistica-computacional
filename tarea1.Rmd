@@ -1,0 +1,118 @@
+---
+title: "Tarea 1: Instalación y visualización"
+output: html_notebook
+---
+
+
+
+```{r}
+install.packages("tidyverse")
+install.packages("devtools")
+install.packages("gapminder")
+devtools::install_github("tereom/estcomp")
+devtools::install_github("diegovalle/mxmaps")
+
+```
+
+```{r}
+library(tidyverse)
+library(devtools)
+library(gapminder)
+library(estcomp)
+library("mxmaps")
+```
+
+
+```{r}
+data(enlacep_2013)
+glimpse(enlacep_2013)
+```
+
+## Preguntas:
+1. ¿Cuáles estados tienen mejor y peor desempeño?
+2. ¿El desempeño por estado depende del sostenimiento de la escuela?
+3. ¿En cuáles estados se encuentran las escuelas con mayor porcentaje de copia?
+
+
+### Pregunta 1: ¿Cuáles estados tienen mejor y peor desempeño?
+
+Se explorará el desempeño entendido como resultado de la prueba en Español para tercero de primaria.
+
+
+```{r}
+
+#Limpieza superficial
+#Crea nueva variable de estado desde el CCT de la escuela
+enlacep_2013['estado'] = substr(enlacep_2013$CCT, start = 1, stop = 2)
+enlacep_2013$estado <- sapply(enlacep_2013$estado, as.numeric)
+enlacep_2013_e <- subset(enlacep_2013, estado<32)
+
+
+ggplot(enlacep_2013_e, aes(x = reorder(estado, -PUNT_ESP_3, mean, na.rm = TRUE),
+    y = PUNT_ESP_3)) +
+    geom_boxplot()   + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Calificación de español de tercero de primaria por estado", 
+        subtitle = "¿Cuáles estados tienen mejor y peor desempeño en Español en Tercero de Primaria?'", x = "Estado", y = "Calificación español")
+
+ggsave('~/p1.png')
+```
+
+Por un lado, los estados con el mejor promedio en español en tercero de primaria son: Distrito Federal (ahora, Ciudad de México), Sonora y Tlaxcala.
+
+Por otro lado, los estados con el peor promedio en español en tercero de primaria son: Oaxaca, San Luis Potosí, y Nayarit. 
+
+
+### Pregunta 2:
+¿El desempeño por estado depende del sostenimiento de la escuela?
+
+Por sostenimiento nos referimos a la fuentes de financiamiento de la escuela. Las principales son Federal (D), estatal (E),  particular (P) y CONAFE (K)
+
+```{r}
+#Sost se refiere al sostenimiento de la escuela. Los principales son Federal (D), estatal (E),  particular (P) y CONAFE (K)
+enlacep_2013_e['sost'] <- substr(enlacep_2013_e$CCT, start = 3, stop = 3)
+enlacep_2013_s <- subset(enlacep_2013_e, sost=='D' | sost =='P' | sost=='E'| sost=='K' )
+enlacep_2013_es <- subset(enlacep_2013_s, estado==9 | estado ==26| estado==29 | estado==18 | estado ==24| estado==20)
+
+
+
+ggplot(enlacep_2013_es, aes(x = reorder(estado, -PUNT_ESP_3, mean, na.rm = TRUE),
+    y = PUNT_ESP_3)) +
+    geom_boxplot()   + 
+  facet_grid(~ sost) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Calificación de español de tercero de primaria por estado y sostenimiento", 
+        subtitle = "¿El desempeño por estado depende del sostenimiento de la escuela?", x = "Estado", y = "Calificación español")
+
+ggsave('~/p2.png')
+```
+
+El "ranking" de los 3 mejores y 3 peores estados no cambia en los diferentes sostenimientos. Es decir, la Ciudad de México en todos los casos es, en promedio, mejor que los otros 2 mejores estados (Sonora y Tlaxcala). 
+
+Sin embargo, las diferencias entre estados sí cambian. Por ejemplo, la diferencia entre las escuelas estatales es mayor que la diferencia de escuelas privadas. En otras palabras, hay menos variación entre estados entre escuelas privadas y estatales. Del mismo modo, el rango interquartil dentro de un mismo estado es menor en las privadas que en las escuelas CONAFE. Esto se puede interpretar como que la calidad de las escuelas privadas suele ser más estable que en las escuelas del CONAFE.
+
+Cabe destacar que Oaxaca, en el 2013, solo participaron escuelas CONAFE y que en el Distrito Federal o no hay o no participaron escuelas comunitarias (CONAFE). 
+
+Como, resultado el ranking de la pregunta anterior está sesgado porque se están comparando las escuelas privadas, estataes y federales de la Ciudad de México con las escuelas comunitarias de Oaxaca. 
+
+
+
+
+### Pregunta 3: ¿En cuáles estados se encuentran las escuelas con mayor porcentaje de copia?
+```{r}
+by_edo<- group_by(enlacep_2013, estado)
+edo_porc_copia <- summarise(by_edo, promedio = mean(ALUM_NOCONFIABLE_3/ALUM_EVAL_3, na.rm=TRUE))
+edo_porc_copia <- subset(edo_porc_copia, estado<33 & estado>0)
+edo_porc_copia$promedio <- edo_porc_copia$promedio*100
+
+
+colnames(edo_porc_copia)[1] <- "region"
+colnames(edo_porc_copia)[2] <- "value"
+mxstate_choropleth(edo_porc_copia,
+                   title = "Porcentaje copia por estado en tercero de primaria") 
+ggsave('~/p3.png')
+```
+```
+
+Resulta interesante que Oaxaca y San Luis Potosí sean los dos estados con peores resultados y con menor porcentaje de copia. Sería interesante observar el cambio en el promedio de calificaciones, eliminando los resultados "poco confiables". Una hipotesis es que Guerrero tenga peores resutlados en promedio que San Luis Potosi, eliminando los resultados poco confiables. 
+

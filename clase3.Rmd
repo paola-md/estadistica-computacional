@@ -1,0 +1,276 @@
+---
+title: "Clase 3"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(estcomp)
+library("mxmaps")
+```
+
+
+```{r}
+?df_edu
+df_edu <- as_tibble(df_edu)
+glimpse(df_edu)
+```
+
+
+```{r}
+?df_mxmunicipio
+df_mun <- as_tibble(df_mxmunicipio)
+glimpse(df_mun)
+```
+
+```{r}
+
+df_mun$mun <- sapply(df_mun$municipio_code, as.numeric) 
+
+df_mun$edo <- sapply(df_mun$state_code, as.numeric) 
+
+df_ind <- df_mun %>% 
+  mutate(
+    porc_ind = (indigenous + part_indigenous)/pop 
+  )  %>% 
+  group_by(edo, mun) %>% 
+  summarise(
+    prom_ind = mean(porc_ind)
+  )  %>% 
+  filter(edo,mun, prom_ind)
+
+head(df_ind)
+
+
+
+df_mun$mun <- sapply(df_mun$municipio_code, as.numeric) 
+
+df_mun$edo <- sapply(df_mun$state_code, as.numeric) 
+
+df_ind <- df_mun %>% 
+  mutate(
+    porc_ind = (indigenous + part_indigenous)/pop 
+  )  %>% 
+  group_by(edo, mun) %>% 
+  summarise(
+    prom_ind = mean(porc_ind)
+  )  %>% 
+  filter(edo,mun, prom_ind)
+
+head(df_ind)
+
+
+df_edu$mun <- sapply(df_edu$municipio_code, as.numeric) 
+
+df_edu$edo <- sapply(df_edu$state_code, as.numeric) 
+
+df_school <- df_edu %>% 
+  filter(sex=="Total") %>% 
+  group_by(edo, mun) %>% 
+  summarise(
+    esc_prom = mean(schoolyrs)
+  )  %>% 
+  filter(edo,mun, esc_prom )
+
+head(df_school)
+
+corr <- inner_join(df_school, df_ind, by =c("edo","mun"))
+
+
+
+```
+
+```{r}
+ggplot(data = corr, aes(x = prom_ind , y =esc_prom)) +
+    geom_point() + 
+    geom_smooth(method = "lm") + 
+    labs(title = "Relación entre poblaicón indigena y años de escolaridad por municipio", 
+       x = "Población indigena", y = "Años de escolaridad promedio")
+
+
+```
+
+
+```{r}
+election_2012_state <- election_2012 %>%
+    group_by(state_code) %>%
+    summarise(
+        pri_pvem = 100 * sum(pri_pvem) / sum(total),
+        pan = 100 * sum(pan) / sum(total),
+        prd_pt_mc = 100 * sum(prd_pt_mc) / sum(total)
+    ) %>%
+    mutate(winner = case_when(
+        pri_pvem > pan & pri_pvem > prd_pt_mc ~ "pri_pvem",
+        pan > pri_pvem & pan > prd_pt_mc ~ "pan",
+        TRUE ~ "prd_pt_mc"), 
+        winner_pct = pmax(pri_pvem, pan, prd_pt_mc))
+
+
+election_map <- mxstate.map %>% 
+    left_join(election_2012_state, by = c("region" = "state_code")) 
+
+ggplot(election_map, aes(long, lat, group = group)) +
+    geom_polygon(aes(fill = winner)) +
+    coord_map()
+```
+
+
+```{r}
+library(gridExtra)
+#> 
+#> Attaching package: 'gridExtra'
+#> The following object is masked from 'package:dplyr':
+#> 
+#>     combine
+map_edo <- ggplot(election_map, aes(long, lat, group = group)) +
+    geom_polygon(aes(fill = winner, alpha = winner_pct), color = "#666666", 
+        size = .05, show.legend = FALSE) +
+    coord_map() +
+    scale_fill_manual(values = c("prd_pt_mc" = "#FFCC00", "pan" = "#3399FF", 
+        "pri_pvem" = "#00CD66")) + 
+    theme_void()
+
+election_hexbinmap <- mxhexbin.map %>% 
+    left_join(election_2012_state, by = c("region" = "state_code")) 
+state_labels_map <- mxhexbin.map %>% 
+    group_by(state_abbr) %>% 
+    summarise(long = mean(long), lat = mean(lat), group = first(group))
+
+hexbinmap_edo <- ggplot(election_hexbinmap, aes(long, lat, 
+  group = group)) +
+    geom_polygon(aes(fill = winner, alpha = winner_pct), color = "#666666", 
+        size = .05, show.legend = FALSE) +
+    coord_map() +
+    scale_fill_manual(values = c("prd_pt_mc" = "#FFCC00", "pan" = "#3399FF", 
+        "pri_pvem" = "#00CD66")) +
+    geom_text(data = state_labels_map, aes(long, lat, label = state_abbr)) +
+    theme_void()
+
+grid.arrange(map_edo, hexbinmap_edo, nrow = 1)
+```
+
+```{r}
+df_mar <- as_tibble(df_marital)
+```
+
+```{r}
+glimpse(df_marital)
+```
+
+```{r}
+head(df_marital)
+```
+
+```{r}
+df_pop_mar <- df_marital %>% 
+  filter(sex=="Total", age_group=="12-17 años") %>% 
+  select(region, married) %>%
+  inner_join(mxstate.map)
+
+df_pop_mar
+
+
+
+```
+
+
+```{r}
+ggplot(df_pop_mar, aes(long, lat, group = group)) +
+    geom_polygon(aes(fill = married)) +
+    coord_map()
+```
+
+
+```{r}
+#install.packages("devtools")
+library(devtools)
+devtools::install_github("tidyverse/tidyr")
+```
+```{r}
+library(tidyr)
+```
+
+```{r}
+long_panel <-gather(df_edu, key =esc, value= porc, no_school:other)
+```
+
+```{r}
+data("enlacep_2013")
+enlacep_sub_2013 <- enlacep_2013 %>% 
+    select(CVE_ENT:PUNT_FCE_6) %>% 
+    sample_n(1000)
+glimpse(enlacep_sub_2013)
+```
+
+```{r}
+enlacep_sub_2013 
+
+```
+
+
+```{r}
+enlacep_sub_2013 
+
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+long_panel <- enlacep_sub_2013 %>% 
+  gather(key =Clave_Materia, value= Puntaje, PUNT_ESP_3:PUNT_FCE_6)
+
+long_panel['Grado'] <- substrRight(long_panel$Clave_Materia, 1)
+long_panel['Materia'] <- substr(long_panel$Clave_Materia, start=6, stop=8)
+
+separate(long_oanel, Materia)
+head(long_panel)
+```
+
+```{r}
+data(df_fertility)
+
+long_fert <- df_fertility %>% 
+  gather(key="Edad", value="Tasa", contains("age")) %>%
+  spread(key = est, value=Tasa) %>% 
+  spread(key=Edad, value=Valor)
+
+long_fert 
+
+```
+
+```{r}
+ggplot(data = long_fert , aes(x = age_20_24 , y =age_25_29)) +
+    geom_point() + 
+    geom_smooth(method = "lm") + 
+    labs(title = "Fertilidad de 20 contra 29", 
+       x = "20-24", y = "25-29")
+
+```
+
+
+```{r}
+original <- c(10,5,2)
+norm <- function(original) {
+  normalized <- (original -range(original)[1])/(range(original)[2] -range(original)[1])
+}
+normalized  
+
+
+norm <- function(original){
+  normalized <- (original -range(original)[1])/(range(original)[2] -range(original)[1])
+  return(normalized)
+}
+
+norm(original)
+```
+
+
+```{r}
+original <- c(10,5,2)
+range(original)[1]
+```
+
+

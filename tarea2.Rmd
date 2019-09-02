@@ -1,0 +1,162 @@
+---
+title: "Tarea 2"
+output:
+  pdf: default
+  html_notebook: default
+---
+
+## Transformación de datos
+
+```{r}
+devtools::install_github("tereom/estcomp")
+```
+
+```{r}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(estcomp)
+```
+
+
+```{r}
+?df_edu
+df_edu <- as_tibble(df_edu)
+glimpse(df_edu)
+```
+
+
+### Ejercicio 1
+Pregunta: ¿Cuál es el municipo con mayor escolaridad promedio (valor de schoolyrs)? Tip: usa filter para quedarte únicamente con sex correspondiente a Total
+
+Respuesta: Benito Juárez
+
+```{r}
+mayor_escol <- df_edu %>%
+  filter(sex=="Total") %>%
+  arrange(desc(schoolyrs)) %>%
+  select(municipio_name, schoolyrs)
+
+mayor_escol
+```
+
+
+### Ejercicio 2
+Crea una data.frame que contenga una línea por cada estado y por sexo, con la siguiente información:
+la escolaridad promedio por estado y sexo (ponderada por la población pop_15)
+la población de cada sexo (mayor a 15 años)
+
+
+Esta pregunta la interpreto como ¿Dónde hay más años de educación? Me costó trabajo la parte de "ponderar" la escolaridad promedio por la población pop_15. Lo multipliqué para cada municipio y luego saqué el promedio por estado.
+
+```{r}
+ej2 <- df_edu %>%
+  filter(sex!="Total") %>%
+  group_by(state_code,sex) %>%
+  mutate(
+    anyos_pop = schoolyrs * pop_15
+  ) %>%
+  summarise(
+    pop15 =sum(pop_15),
+    esc_edo = mean(anyos_pop)
+  )  %>%
+  select(state_code, sex, esc_edo, pop15)%>%
+  arrange(desc(esc_edo))
+
+ej2
+
+```
+
+## Correcciones
+```{r}
+ej2 <- df_edu %>%
+  filter(sex!="Total") %>%
+  mutate(
+    anyos_pop = schoolyrs * pop_15
+  ) %>%
+  group_by(state_code,sex) %>%
+  summarise(
+    pop15 =sum(pop_15, na.rm = TRUE),
+    esc_edo = sum(anyos_pop) / pop15
+  )  %>%
+  select(state_code, sex, esc_edo, pop15)%>%
+  arrange(desc(esc_edo))
+
+
+head(ej2)
+```
+
+
+
+### Ejercicio 3
+Crea una variable que indique el porcentaje de la población que cursó al menos educación básica
+
+Duda: ¿Población total?
+
+```{r}
+ej3 <- df_edu %>%
+  filter(sex == "Total")%>% 
+  mutate(
+    al_menos_basica = 100 - (no_school+ preschool)
+  ) %>% 
+  select(state_name, municipio_name, al_menos_basica)
+
+ej3
+
+ej3_mexico <- ej3 %>%
+  summarise(
+    en_pais = mean(al_menos_basica)
+  )
+
+ej3_mexico #88.9%
+```
+
+### Ejercicio 4
+Enuncia al menos una pregunta que se pueda responder transformando y graficando estos datos. Crea tu(s) gráfica(s).
+
+Pregunta: Relación entre calificación ENLACE y años de escolaridad promedio del municipio
+
+```{r}
+#INFO ENLACE
+df_enlace <- as_tibble(enlacep_2013)
+
+df_enlace['estado'] <- substr(df_enlace$CCT, start = 1, stop = 2)%>% 
+sapply(as.numeric)
+df_enlace <- subset(df_enlace, estado<32)
+
+df_enlace$mun <- sapply(df_enlace$CVE_MUN, as.numeric)
+
+enlace_mun <- df_enlace %>% 
+  group_by(estado, mun) %>% 
+  summarise(
+    mean_mat6 = mean(PUNT_MAT_6, na.rm = TRUE)
+  )
+
+enlace_mun 
+
+#INFO EDUCACION
+df_edu$estado <- sapply(df_edu$state_code, as.numeric)
+df_edu$mun <- sapply(df_edu$municipio_code, as.numeric)
+
+edu_mun <- df_edu %>%
+  filter(sex == "Total")%>%
+  group_by(estado,mun) %>%
+  summarise(
+    prom_esc = mean(schoolyrs)
+  ) %>% 
+  select(estado, mun, prom_esc)
+
+#MERGE
+df_enlace_edu <- merge(edu_mun, enlace_mun, by=c("estado", "mun"))
+
+```
+
+
+```{r}
+ggplot(data = df_enlace_edu, aes(x = prom_esc, y = mean_mat6)) +
+    geom_point() + 
+    geom_smooth(method = "lm") + 
+    labs(title = "Relación entre ENLACE y años de escolaridad por municipio", 
+       x = "Años de escolaridad promedio", y = "Calificación matemáticas sexto de primaria")
+
+ggsave('./p2_e4.png')
+```
+

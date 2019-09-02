@@ -1,0 +1,72 @@
+---
+title: "Tarea 3: Unión de tablas y limpieza de datos"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(estcomp)
+```
+
+```{r}
+df_marital <- as_tibble(df_marital)
+```
+
+## Pregunta 1
+### ¿Están limpios los datos? en caso de que no ¿qué principio no cumplen? 
+
+No están limpios los datos. No cumplen el principio de que cada columna es una variable. Las columnas single, married, living w partner, separed y other contienen la misma información para diferentes grupos. Es decir, las variables mencionadas previamente dicen qué porcentaje de la población tiene cuál estatus marital. Sin embargo, esto se puede resumir en dos variables: "estatus marital" y "porcentaje".
+```{r}
+glimpse(df_marital)
+```
+
+## Pregunta 2
+### Limpia los datos y muestra las primeras y últimas líneas (usa head() y tail()).
+
+```{r}
+
+df_clean <- df_marital %>% 
+  gather(key="status", value="percentage", single:other) 
+
+head(df_clean)
+
+tail(df_clean)
+
+```
+
+
+## Pregunta 3
+### Filtra para eliminar los casos a total en las variables sexo y edad, calcula a nivel nacional cuál es la proporción en cada situación conyugal por grupo de edad y sexo. ¿Cómo puedes graficar o presentar los resultados?
+
+```{r}
+df_sum_nacional <- df_clean %>% 
+  filter(sex != "Total", age_group != "Total") %>%  
+  group_by(status, sex, age_group) %>% 
+  summarise(
+    situacion_nacional = mean(percentage)
+  )
+
+head(df_sum_nacional)
+```
+
+
+```{r}
+ggplot(df_sum_nacional, aes(x = age_group, 
+    y = situacion_nacional)) +
+    geom_col(show.legend = FALSE) +
+    facet_grid(sex ~ status) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+
+## Pregunta 4
+### Regresando a los datos que obtuviste en 2, une la tabla de datos con df_edu, ¿qué variables se usarán para unir?
+
+"state_code", "municipio_code", "region", "state_name", "state_abbr", "municipio_name", "sex"
+
+
+```{r}
+df_clean %>%
+  inner_join(df_edu,  by = c("state_code", "municipio_code", "region", "state_name", "state_abbr", "municipio_name", "sex"))
+```
+

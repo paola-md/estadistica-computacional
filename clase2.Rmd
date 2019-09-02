@@ -1,0 +1,140 @@
+---
+title: "Clase 2"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(mxmaps)
+library(estcomp)
+```
+
+```{r}
+df_mxmunicipio <- as_tibble(df_mxmunicipio)
+glimpse(df_mxmunicipio)
+```
+
+```{r}
+glimpse(df_edu)
+```
+
+```{r}
+df_ej <- tibble(genero = c("mujer", "hombre", "mujer", "mujer", "hombre"), 
+  estatura = c(1.65, 1.80, 1.70, 1.60, 1.67))
+df_ej
+```
+
+```{r}
+glimpse(df_mxmunicipio)
+```
+
+```{r}
+filter(df_mxmunicipio, state_abbr=="CDMX")
+```
+
+```{r}
+filter(df_mxmunicipio, state_abbr=="NL" & pop > 200000)
+```
+
+```{r}
+filter(df_mxmunicipio, ((afromexican + part_afromexican) /pop)>0.5)
+```
+
+
+```{r}
+select(df_mxmunicipio, contains("state"))
+```
+
+```{r}
+select(df_mxmunicipio, matches("state"))
+```
+
+
+```{r}
+select(df_mxmunicipio, starts_with("state"))
+```
+
+```{r}
+arrange(df_mxmunicipio, desc(pop)) %>% select(df_mxmunicipio, municipio_name)
+```
+
+```{r}
+arrange(select(df_mxmunicipio, municipio_name, pop), desc(pop))
+```
+
+
+```{r}
+arrange(df_mxmunicipio, desc(pop_female/pop_male))
+```
+
+```{r}
+arrange(filter(select(df_mxmunicipio, pop_female, pop_male,  municipio_name,pop ), pop<5000), desc(pop_female/pop_male))
+```
+
+
+
+```{r}
+glimpse(df_mxmunicipio)
+```
+
+```{r}
+mutate(df_mxmunicipio, pop_ind = (indigenous + part_indigenous)/pop )
+```
+
+```{r}
+mutate(df_mxmunicipio, sex_ratio = (pop_female/pop_male))
+```
+
+```{r}
+by_estado <-  group_by(df_mxmunicipio, state_code)
+summarise(by_estado, mean(pop, na.rm= TRUE))
+```
+
+```{r}
+summarise(by_estado, sum(indigenous), sum(afromexican))
+```
+
+
+```{r}
+glimpse(df_mxmunicipio)
+```
+
+```{r}
+library(estcomp)
+
+df_e <- as_tibble(election_2012)
+```
+
+
+```{r}
+df_e %>% 
+  filter(!is.na(nominal_list)) %>%
+  group_by(state_code)
+```
+
+
+
+```{r}
+df_e %>% 
+  filter(!is.na(nominal_list)) %>%
+  group_by(state_code)  %>%
+  summarize(total_vote = sum(total) / sum(nominal_list) ) 
+```
+
+
+```{r}
+df_e %>% 
+  filter(polling_type!="S") %>%
+  group_by(state_code)  %>%
+  summarize(total_vote = sum(total) / sum(nominal_list) ) %>%
+  arrange(desc(total_vote))
+```
+
+
+
+```{r}
+glimpse(df_e)
+```
+
