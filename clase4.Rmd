@@ -65,3 +65,23 @@ for (i in 1:length(list_elements)){
 
 ```
 
+
+```{r}
+iris <- data(iris)
+
+map_int(iris, n_distinct)
+map_int(iris, function(x) length(unique(x)))
+map_int(iris, ~length(unique(.)))
+
+```
+
+```{r}
+models <- mtcars %>% 
+  split(.$cyl) %>% 
+  map(~lm(mpg ~ wt, data =.))
+
+
+maps_dbl(models, ~.$coefficients[2])
+maps_dbl(models, ~.$coefficients(.)["wt"])
+```
+

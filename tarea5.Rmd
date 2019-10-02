@@ -1,0 +1,133 @@
+---
+title: "Tarea 5: Bootstrap"
+output: html_notebook
+---
+
+
+```{r}
+devtools::install_github("tereom/estcomp", force = TRUE)
+library(estcomp)
+```
+
+
+```{r}
+load("~/ITAM2/EstadisticaCompu/strata_sample_2006.rda")
+strata_sample_2006 
+```
+
+
+```{r}
+load("~/ITAM2/EstadisticaCompu/sample_2006.rda")
+sample_2006
+```
+
+
+## Pregunta 1
+Calcula el estimador de razón combinado, para muestreo estratificado la fórmula es:
+
+```{r}
+library(tidyverse)
+sample_2006 <- as.tibble(sample_2006)
+strata_sample_2006 <- as.tibble(strata_sample_2006)
+
+strata_join <- sample_2006 %>%
+  left_join(strata_sample_2006, by=c("stratum"))
+
+head(strata_join)
+
+```
+
+```{r}
+estimador_razon <- function(db, partido) {
+  db %>% 
+    group_by(stratum) %>% 
+    summarise(
+      sigma_y = sum(!! sym(partido)) ,
+      sigma_x = sum(total),
+      sigma_h = sum(N/n)
+    )  %>%
+    mutate(
+      p = (sigma_h*sigma_y) / (sigma_h*sigma_x)
+    ) %>% 
+    summarise(
+      p_gorro =  mean(p)
+    )
+  
+}
+
+resp <- estimador_razon(strata_join, "pan")
+resp
+
+
+```
+
+
+## Pregunta 2
+Utiliza bootstrap para calcular el error estándar, y reporta tu estimación del error.
+
+```{r}
+muestra_por_estrato <- function(df, partido) {
+  muestra_por_estrato<- df %>% 
+    group_by(stratum) %>% 
+    #sample_n(100, replace =TRUE)  %>% 
+    sample_frac(size=1, replace=TRUE) %>% 
+    estimador_razon(partido) 
+}
+
+#computos_boot <- bootstraps(muestra_por_estrato, times = 1000)
+
+
+error_boot <- rerun(1000, muestra_por_estrato(strata_join, "pan")[[1]]) %>% 
+  flatten_dbl()
+
+sd <- sd(error_boot)
+sd
+```
+
+
+## Pregunta 3
+Construye un intervalo del 95% de confianza utilizando el método normal.
+```{r}
+
+mean <- estimador_razon(strata_join, "pan") 
+
+li_normal <- round(mean - 1.96 * sd(error_boot), 3)
+ls_normal <- round(mean + 1.96 * sd(error_boot), 3)
+c(li_normal, ls_normal)
+```
+
+
+## Pregunta 4
+Repite para todos los partidos (y la categoría otros). Reporta tus intervalos en una tabla.
+```{r}
+
+intervalo <- function(strata_join, partido) {
+    error_boot <- rerun(1000, muestra_por_estrato(strata_join, partido)[[1]]) %>% 
+    flatten_dbl()
+  
+    sd <- sd(error_boot)
+    mean <- estimador_razon(strata_join, partido) 
+  
+    li_normal <- round(mean - 1.96 * sd(error_boot), 5)
+    ls_normal <- round(mean + 1.96 * sd(error_boot), 5)
+    str_c("[" ,li_normal, ", " , ls_normal , "]")
+}
+
+
+inter_partido<- c(intervalo(strata_join,"pan"),
+                  intervalo(strata_join,"pri_pvem"),
+                  intervalo(strata_join,"panal"),
+                  intervalo(strata_join,"prd_pt_conv"),
+                  intervalo(strata_join,"psd"),
+                  intervalo(strata_join,"otros"))
+partido_nombres <- c("PAN", "PRI-VERDE", "PANAL", "PRD_PT_CONV", "PSD", "Otros")
+
+resultados <- cbind(partido_nombres, inter_partido)
+as.tibble(resultados)
+
+resultados <- map()
+
+
+```
+
+

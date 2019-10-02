@@ -1,0 +1,128 @@
+---
+title: "Clase 6: Reposición"
+output: html_notebook
+---
+#Comapara el intervalo anterior con los intervalos normal y de percentiles.
+
+```{r}
+library(ACSWR)
+data("nerve")
+head(nerve)
+#> [1] 0.21 0.03 0.05 0.11 0.59 0.06
+
+kurtosis <- function(x){
+    n <- length(x)
+    1 / n * sum((x - mean(x)) ^ 3) / sd(x) ^ 3 
+}
+
+theta_hat <- kurtosis(nerve)
+theta_hat
+#> [1] 1.757943
+
+kurtosis_boot <- function(x){
+  x_boot <- sample(x, replace = TRUE)
+  kurtosis(x_boot)
+}
+B <- 10000
+kurtosis <- rerun(B, kurtosis_boot(nerve)) %>% 
+  flatten_dbl()
+
+li_normal <- round(theta_hat - 1.96 * sd(kurtosis), 2)
+ls_normal <- round(theta_hat + 1.96 * sd(kurtosis), 2)
+c(li_normal, ls_normal)
+```
+
+```{r}
+n_nerve <- length(nerve)
+li_t <- round(theta_hat + qt(0.025, n_nerve - 1) * sd(kurtosis), 2)
+ls_t <- round(theta_hat - qt(0.025, n_nerve - 1) * sd(kurtosis), 2)
+c(li_t, ls_t)
+```
+
+
+```{r}
+library(gridExtra)
+nerve_kurtosis <- tibble(kurtosis)
+hist_nerve <- ggplot(nerve_kurtosis, aes(x = kurtosis)) + 
+        geom_histogram(binwidth = 0.05, fill = "gray30") +
+            geom_vline(xintercept = c(li_normal, ls_normal, theta_hat), 
+            color = c("black", "black", "red"), alpha = 0.5)
+
+qq_nerve <- ggplot(nerve_kurtosis) +
+  geom_abline(color = "red", alpha = 0.5) +
+  stat_qq(aes(sample = kurtosis), dparams = list(mean = mean(kurtosis), sd = sd(kurtosis))) 
+
+grid.arrange(hist_nerve, qq_nerve, ncol = 2, newpage = FALSE)
+
+comma(q_kurt <- quantile(kurtosis, 
+  probs = c(0.025, 0.05, 0.1, 0.9, 0.95, 0.975)))
+comma(qnorm(p = c(0.025, 0.05, 0.1, 0.9, 0.95, 0.975), mean = theta_hat, 
+  sd = sd(kurtosis)))
+```
+
+
+```{r}
+library(bootstrap)
+var_sesgada <- function(x) sum((x - mean(x)) ^ 2) / length(x)
+bcanon(x = spatial[, 1], nboot = 2000, theta = var_sesgada, alpha = c(0.025, 0.975))
+```
+ 
+ Comapara el intervalo anterior con los intervalos normal y de percentiles.
+
+
+```{r}
+library(bootstrap)
+var_sesgada <- function(x) sum((x - mean(x)) ^ 2) / length(x)
+
+bcanon(x = spatial[, 1], nboot = 2000, theta = var_sesgada, alpha = c(0.025, 0.975))
+
+
+library(tidyverse)
+
+rep_bootstrap <- function() {
+  b <- sample(spatial$A, replace =TRUE)
+  var_sesgada(b)
+}
+
+reps_boot<- rerun(100, rep_bootstrap()) %>% flatten_dbl()
+
+sd_patial <- sd(reps_boot)
+
+#Normal
+theta_hat - 2*sd_patial
+theta_hat + 2*sd_patial
+  
+#Percentiles
+quantile(reps_boot, probs = c(0.25,0.75))
+theta_hat - qt(0.025,26)*sd_patial
+theta_hat + qt(0.975,26)*sd_patial
+
+#AB
+
+
+
+```
+
+
+```{r}
+
+inverse <- function(n) {
+  x<- runif(n)
+  if (x < 0.4){
+    resp <- 4
+  } else if (x < 0.4+ 0.25){
+    resp <- 3
+    }else if (x < 0.4+ 0.25 +0.15) {
+      resp <- 2
+    }else if (x < 0.4+ 0.25 +0.15+0.2){
+      resp <- 1
+    } 
+  resp
+}
+
+lapply(100, inverse)
+
+
+```
+
+

@@ -1,0 +1,218 @@
+---
+title: "Tarea 4: Programación funcional y distribución muestral"
+output: html_notebook
+---
+
+## Inciso 1
+Descarga la carpeta specdata, ésta contiene 332 archivos csv que almacenan información de monitoreo de contaminación en 332 ubicaciones de EUA. Cada archivo contiene información de una unidad de monitoreo y el número de identificación del monitor es el nombre del archivo. En este ejercicio nos interesa unir todas las tablas en un solo data.frame que incluya el identificador de las estaciones.
+
+La siguiente instrucción descarga los datos si trabajas con proyectos de RStudio, también puedes descargar el zip manualmente.
+
+```{r}
+library(usethis)
+dir.create("data")
+use_directory("data")
+use_zip("https://d396qusza40orc.cloudfront.net/rprog%2Fdata%2Fspecdata.zip", 
+    destdir = "data")
+```
+
+### 1.1 
+Crea un vector con las direcciones de los archivos.
+
+```{r}
+paths <- dir("data/specdata", pattern = "\\.csv$", full.names = TRUE)
+```
+
+### 1.2 
+Lee uno de los archivos usando la función read_csv() del paquete readr.
+Tip: especifica el tipo de cada columna usando el parámetro col_types.
+```{r}
+library(readr)
+prueba <- read_csv(paths[1], col_types = list(
+  Date = col_date(format = ""),
+  sulfate = col_double(),
+  nitrate = col_double(),
+  ID = col_double()
+))
+prueba
+
+```
+### 1.3 
+Utiliza la función map_df() para iterar sobre el vector con las direcciones de los archivos csv y crea un data.frame con todos los datos, recuerda añadir una columna con el nombre del archivo para poder identificar la estación.
+
+```{r}
+library(purrr)
+rama <- map_df(paths, read_csv, .id = "FILENAME")
+```
+
+```{r}
+head(rama)
+```
+
+## Inciso 2
+Consideramos los datos de ENLACE edo. de México (enlace), y la columna de calificaciones de español 3o de primaria (esp_3).
+
+```{r}
+library(estcomp)
+library(janitor)
+library(dplyr)
+
+enlace <- enlacep_2013 %>% 
+    clean_names() %>% 
+    mutate(id = 1:n()) %>% 
+    select(id, cve_ent, turno, tipo, esp_3 = punt_esp_3, esp_6 = punt_esp_6, 
+        n_eval_3 = alum_eval_3, n_eval_6 = alum_eval_6) %>% 
+    na.omit() %>% 
+    filter(esp_3 > 0, esp_6 > 0, n_eval_3 > 0, n_eval_6 > 0, cve_ent == "15")
+```
+
+### 2.1 
+
+Selecciona una muestra de tamaño  
+n =10, 100, 1000
+Para cada muestra calcula media y el error estándar de la media usando el principio del plug-in: 
+Tip: Usa la función sample_n() del paquete deplyr para generar las muestras.
+
+```{r}
+plug_in <- function(enlace, esp_3, n) {
+  enlace %>% summarise(
+    media = mean(esp_3, na.rm = TRUE),
+    se = sd(esp_3 , na.rm = TRUE) / sqrt(n)
+  )
+}
+```
+
+
+```{r}
+set.seed(16021)
+
+# muestra
+enlace_10 <- sample_n(enlace, 10)
+enlace_100 <- sample_n(enlace, 100)
+enlace_1000 <- sample_n(enlace, 1000)
+
+est10 <- plug_in(enlace_10, esp_3, 10)
+est100 <- plug_in(enlace_100, esp_3, 100)
+est1000 <-plug_in(enlace_1000, esp_3, 1000)
+
+est10
+est100
+est1000
+
+```
+
+
+### 2.2
+
+Ahora aproximareos la distribución muestral, para cada tamaño de muestran
+La distribución de la estadística es la distribución muestral.
+
+```{r}
+library(ggplot2)
+ggplot() +
+  stat_function(data = enlace_10, aes(enlace_10$esp_3), fun = dnorm, n = 10, args = list(mean = est10[[1]], sd = est10[[2]])) + ylab("") 
+
+ggplot() +
+    stat_function(data = enlace_100, aes(enlace_100$esp_3), fun = dnorm, n = 100, args = list(mean = est100[[1]], sd = est100[[2]])) + ylab("") 
+  
+ ggplot() +
+    stat_function(data = enlace_1000, aes(enlace_1000$esp_3), fun = dnorm, n = 100, args = list(mean = est1000[[1]], sd = est1000[[2]])) + ylab("") 
+```
+
+#### 2.2 inciso i
+Simula  10,000 muestras aleatorias, ii) calcula la media en cada muestra,
+
+```{r}
+library(purrr)
+simula_media <- function(n, x) {
+  muestra_boot <- sample(x, size = n, replace = TRUE)
+  mean(muestra_boot, na.rm = TRUE)
+}
+
+medias_10 <- rerun(10000, simula_media(n = 10, enlace$esp_3)) %>% flatten_dbl()
+medias_100 <- rerun(10000, simula_media(n = 100, enlace$esp_3)) %>% flatten_dbl()
+medias_1000 <- rerun(10000, simula_media(n = 1000, enlace$esp_3)) %>% flatten_dbl()
+
+```
+
+#### 2.2 inciso ii
+Realiza un histograma de la distribución muestral de las medias (las medias del paso anterior) 
+
+```{r}
+
+hist(medias_10)
+hist(medias_100)
+hist(medias_1000)
+
+ggplot() + geom_histogram(aes(medias_10))
+ggplot() + geom_histogram(aes(medias_100))
+ggplot() + geom_histogram(aes(medias_1000))
+  
+```
+
+
+iv) aproxima el error estándar calculando la desviación estándar de las medias del paso ii. 
+Tip: Escribe una función que dependa del tamaño de muestra y usa la función rerun() del paquete purrr para hacer las  10,000   simulaciones.
+```{r}
+error_estandar<- function(n,x) {
+  sd(x , na.rm = TRUE) 
+}
+
+error_estandar(10, medias_10)
+error_estandar(100, medias_100)
+error_estandar(1000, medias_1000)
+```
+
+### 2.3 
+Calcula el error estándar de la media para cada tamaño de muestra usando la información poblacional (ésta no es una aproximación), usa la fórmula:
+```{r}
+error_estandar<- function(n,x) {
+  sd(x , na.rm = TRUE) /  sqrt(n)
+}
+
+error_estandar(10, enlace$esp_3)
+error_estandar(100, enlace$esp_3)
+error_estandar(1000, enlace$esp_3)
+```
+
+### 2.4
+
+¿Cómo se comparan los errores estándar correspondientes a los distintos tamaños de muestra?
+
+Mientras mayor sea la muestra, menor es el error. Si queremos un error chico, conviene usar una muestra grande. 
+
+
+# Clase
+```{r}
+enlace_todo <- enlacep_2013 %>% 
+    clean_names() %>% 
+    mutate(id = 1:n()) %>% 
+    select(id, cve_ent, turno, tipo, esp_3 = punt_esp_3, esp_6 = punt_esp_6, 
+        n_eval_3 = alum_eval_3, n_eval_6 = alum_eval_6) %>% 
+    na.omit() %>% 
+    filter(esp_3 > 0, esp_6 > 0, n_eval_3 > 0, n_eval_6 > 0, cve_ent == "15")
+
+
+enlace_muestra <- sample_n(enlace_todo, size = 300,replace = FALSE)
+
+
+
+
+corrBoot <- function(x){ 
+  # x: variable de interés
+  # n: número de replicaciones bootstrap
+  #s <- sample(1:4000, 1, replace=F)
+  #set.seed(s)
+  
+  n <- nrow(x)
+  muestra_boot <- sample_n(x, size = n, replace = TRUE)
+  cor(muestra_boot$esp_3,muestra_boot$esp_6)
+}
+
+thetas_boot <- rerun(10000, corrBoot(enlace_muestra)) %>% flatten_dbl()
+                     
+sd(thetas_boot)
+
+
+```
+

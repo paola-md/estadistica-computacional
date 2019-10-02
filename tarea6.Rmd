@@ -1,0 +1,271 @@
+---
+title: 'Tarea 6: Mas bootstrap'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(tidyr)
+library(estcomp)
+library(janitor)
+library(tidyverse)
+library(boot)
+library(abind)
+```
+
+
+## Pregunta 1
+Consideramos la siguiente muestra de los datos de ENLACE:
+
+```{r}
+set.seed(1983)
+enlace_sample <- enlacep_2013 %>% 
+    janitor::clean_names() %>% 
+    mutate(id = 1:n()) %>% 
+    select(id, cve_ent, turno, tipo, mat_3 = punt_mat_3, 
+        n_eval_3 = alum_eval_3) %>% 
+    na.omit() %>% 
+    filter(mat_3 > 0, n_eval_3 > 0) %>% 
+    group_by(cve_ent) %>% 
+    sample_frac(size = 0.1) %>% 
+    ungroup()
+```
+
+Visualizamos los datos
+```{r}
+head(enlace_sample)
+```
+
+```{r}
+head(enlacep_2013)
+```
+
+
+### Inciso A
+Selecciona el subconjunto de datos de Chiapas (clave de entidad 07):
+
+```{r}
+enlace_sample_chiapas <- enlace_sample  %>% 
+  filter(cve_ent=="07")
+
+enlace_chiapas <- enlacep_2013 %>% 
+  filter(CVE_ENT=="07")
+
+#Respuesta
+nrow(enlace_sample_chiapas)
+#Todas las escuelas de chiapas
+nrow(enlace_chiapas)
+```
+
+
+### Inciso B
+Calcula el estimador plug-in para la mediana de las calificaciones de matemáticas (en Chiapas).
+```{r}
+mediana_muestra <- median(enlace_sample_chiapas$mat_3, na.rm = TRUE)
+print(mediana_muestra)
+#Que tan lejos está la mediana de la muestra a la de la población
+median(enlace_chiapas$PUNT_MAT_3, na.rm = TRUE)
+```
+
+
+
+### Inciso C
+Calcula el estimador bootstrap del error estándar y construye un intrvalo de confianza normal. Debes 1) tomar muestras bootstrap con reemplazo del subconjunto de datos de Chiapas, 2) calcular la mediana en cada una de las muestras y 3) calcular la desviación estándar de las medianas de 2).
+```{r}
+
+muestra_mediana <- function(df) {
+    #1) tomar muestras bootstrap con reemplazo del subconjunto de datos de Chiapas
+    muestra <- sample_n(df, nrow(df), replace =TRUE)
+    #2) calcular la mediana en cada una de las muestras
+    median(muestra$mat_3, na.rm = TRUE) 
+}
+
+error_boot <- rerun(1000, muestra_mediana(enlace_sample_chiapas)) %>% 
+  flatten_dbl()
+
+#3) calcular la desviación estándar de las medianas
+sd <- sd(error_boot)
+print(sd)
+
+
+#Intervalo de confianza
+mean <- mediana_muestra
+li_normal <- round(mean - 1.96 * sd(error_boot), 3)
+ls_normal <- round(mean + 1.96 * sd(error_boot), 3)
+c(li_normal, ls_normal)
+```
+
+### Inciso D
+Repite los pasos anteriores para la Ciudad de México (clave de entidad 09).
+Compara los intervalos de confianza.
+
+```{r}
+
+intervalo_estado <- function(enlace_sample, ent) {
+  enlace_sample_edo <- enlace_sample  %>% 
+    filter(cve_ent==ent)
+  
+  mediana_muestra <- median(enlace_sample_edo$mat_3, na.rm = TRUE)
+  
+  muestra_mediana <- function(df) {
+      #1) tomar muestras bootstrap con reemplazo del subconjunto de datos de Chiapas
+      muestra <- sample_n(df, nrow(df), replace =TRUE)
+      #2) calcular la mediana en cada una de las muestras
+      median(muestra$mat_3, na.rm = TRUE) 
+  }
+  
+  error_boot <- rerun(1000, muestra_mediana(enlace_sample_edo)) %>% 
+    flatten_dbl()
+  
+  #3) calcular la desviación estándar de las medianas
+  sd_patial <- sd(error_boot)
+  
+  #Intervalo de confianza
+  mean <- mediana_muestra
+  li_normal <- round(mean - 1.96 * sd_patial, 3)
+  ls_normal <- round(mean + 1.96 * sd_patial, 3)
+  c(li_normal, ls_normal)
+}
+
+
+intervalo_estado(enlace_sample, "07")
+intervalo_estado(enlace_sample, "09")
+
+```
+Es interesante que los intervalos se empalman. Es decir, es posible que la mediana de los dos estados sea la misma.
+
+## Pregunta 2
+Intervalos de confianza. En este ejercicio compararemos distintos intervalos de confianza para las medias de una exponencial.
+
+Simula una muestra de tamaño 40 de una distribución exponencial(1/2).
+
+```{r}
+sim_exp <- rexp(40, (1/2))
+```
+
+### Inciso A
+Calcula el estimador plug-in.
+
+```{r}
+mean <- mean(sim_exp)
+mean
+```
+
+### Inciso B
+Calcula intervalos: normal, de percentiles y  BCA, presentalos en una tabla (para los BCA usa la función boot.ci() del paquete boot
+
+
+
+```{r}
+sim_exp <- rexp(40, 1/2)
+my_mean <- function(x, ind) mean(x[ind])
+boot_sim_exp <- boot(sim_exp, my_mean, R = 200)
+ints <- boot.ci(boot_sim_exp, type = c("norm", "perc", "bca"))
+ints
+```
+
+"A mano"
+```{r}
+
+muestra_mean <- function(info) {
+    sample(info,length(info), replace =TRUE) %>% 
+    mean(na.rm = TRUE) 
+}
+
+error_boot <- rerun(200, muestra_mean(sim_exp)) %>% 
+  flatten_dbl()
+
+sd_patial <- sd(error_boot)
+
+#Intervalo de confianza (Normal)
+li_normal <- round(mean - 1.96 * sd_patial, 3)
+ls_normal <- round(mean + 1.96 * sd_patial, 3)
+ic_norm <- c(li_normal, ls_normal)
+
+
+#Percentiles
+li_perc <- round(quantile(error_boot, probs = 0.025),3)
+ls_perc <- round(quantile(error_boot, probs = 0.975),3)
+ic_perc <- c(li_perc, ls_perc)
+
+
+#BCA
+boot_sim_exp <- boot(sim_exp, my_mean, R = 200)
+bca_int <- boot.ci(boot_sim_exp, type = "bca")
+li_bca <- round(bca_int[[4]][4], 3)
+ls_bca <- round(bca_int[[4]][5], 3)
+ic_bca <-  c(li_bca, ls_bca)
+
+as.tibble(cbind(ic_norm, ic_perc, ic_bca))
+```
+
+```{r}
+ci_uno <- as.tibble(cbind(ic_norm, ic_perc, ic_bca))
+t_uno <-  as.data.frame(t(ci_uno))
+
+ggplot(t_uno, aes(x= c("norm", "perc","bca"))) +
+geom_errorbar(aes(ymax = t_uno[,2], ymin=t_uno[,1]))
+```
+
+
+Repite los pasos anteriores 200 veces y grafica los intervalos, ¿cómo se comparan?
+Se acercan más los intervalos
+```{r}
+get_CI <- function() {
+  sim_exp <- rexp(40, 1/2)
+  muestra_mean <- function(info) {
+      sample(info,length(info), replace =TRUE) %>% 
+      mean(na.rm = TRUE) 
+  }
+  
+  error_boot <- rerun(200, muestra_mean(sim_exp)) %>% 
+    flatten_dbl()
+  
+  sd_patial <- sd(error_boot)
+  
+  #Intervalo de confianza (Normal)
+  li_normal <- round(mean - 1.96 * sd_patial, 3)
+  ls_normal <- round(mean + 1.96 * sd_patial, 3)
+  ic_norm <- c(li_normal, ls_normal)
+  
+  
+  #Percentiles
+  li_perc <- round(quantile(error_boot, probs = 0.025),3)
+  ls_perc <- round(quantile(error_boot, probs = 0.975),3)
+  ic_perc <- c(li_perc, ls_perc)
+  
+  
+  #BCA
+  boot_sim_exp <- boot(sim_exp, my_mean, R = 200)
+  bca_int <- boot.ci(boot_sim_exp, type = "bca")
+  li_bca <- round(bca_int[[4]][4], 3)
+  ls_bca <- round(bca_int[[4]][5], 3)
+  ic_bca <-  c(li_bca, ls_bca)
+  
+  as.tibble(cbind(ic_norm, ic_perc, ic_bca))
+  as.data.frame(cbind(ic_norm, ic_perc, ic_bca))
+}
+
+CI_boot <- rerun(200,get_CI()) 
+
+
+all.matrix <- abind(CI_boot, along=3)
+prom_ci <- as.data.frame(apply(all.matrix, c(1,2), mean))
+prom_ci
+
+```
+
+
+```{r}
+t_prom <-  as.data.frame(t(prom_ci))
+
+ggplot(t_prom, aes(x= c("norm", "perc","bca"))) +
+  geom_errorbar(aes(ymax = t_prom[,2], ymin=t_prom[,1]))
+```
+
+```{r}
+plot(boot_sim_exp)
+```
+
+

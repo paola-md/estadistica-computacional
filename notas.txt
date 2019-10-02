@@ -1,0 +1,10 @@
+Notas clases:
+
+Boostrap: errores estandar, no mejora estimación
+Tarea: Conociamos población (todo México)
+En Boostrap, solo tenemos muestra
+Sirve para estimar el error
+Calcular error estandar para la estadística que queramos: 
+como la mediana, no para la media
+Error es desviación estandar
+¿Cómo se
